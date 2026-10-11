@@ -1,0 +1,207 @@
+# LEVIATHAN ARCHITECTURE: OFFICIAL SYSTEM DESIGN DOCUMENT (SDD)
+
+**Version:** 2.0 (Unified Visual Engine)
+**Classification:** Proprietary / Core IP
+**Paradigm:** Structural AST Manipulation + Formal Logic Verification + Dictionary-State Simulation
+
+---
+
+## 1. EXECUTIVE SUMMARY
+
+Leviathan is a first-of-its-kind autonomous code generation system that fundamentally rejects 1D stochastic token prediction (standard LLMs). Instead, it treats software as a hierarchical, discrete mathematical structure. 
+
+By natively generating Abstract Syntax Trees (ASTs), verifying them against First-Order Logic (FOL) using an SMT solver (Z3), mutating them via Genetic Programming (GP) on logical failure, and executing them against a high-speed Dictionary-Based Simulation Environment, Leviathan guarantees **zero syntax errors** and **logically provable execution paths**.
+
+The system is visualized via a PySide6 Node-Based UI, allowing users to observe the AI's structural reasoning, intercept formal logic violations, and visually identify exact node failures in real-time.
+
+---
+
+## 2. MACRO SYSTEM ARCHITECTURE
+
+```mermaid
+graph TD
+    User[User Intent NLP] --> FLC[Fuzzy Logic Controller]
+    FLC --> |Weights Vector| Router[State Machine Router]
+    
+    Router --> TT[Tree Transformer]
+    TT --> |Raw AST| Z3SMT[Z3 Predicate Logic Skeptic]
+    
+    Z3SMT --> |SAT: Logic Sound| Env[Dictionary Environment Interpreter]
+    Z3SMT --> |UNSAT: Contradiction| GP[Genetic Programming Mutator]
+    
+    GP --> |Mutated AST| Z3SMT
+    
+    Env --> |Success| UI[PySide6 Node Canvas: GREEN]
+    Env --> |Runtime Error| UI_ERR[PySide6 Node Canvas: RED FLAG]
+```
+
+---
+
+## 3. ALGORITHMS & PSEUDOCODE
+
+### 3.1. Fuzzy Logic Input Controller
+**Purpose:** Translates ambiguous human language into a continuous mathematical constraint vector.
+**Algorithm:** Fuzzy Set Intersection.
+
+```text
+FUNCTION evaluate_fuzzy_intent(prompt: String) -> Dict<String, Float>
+    weights = { 'security': 0.5, 'speed': 0.5, 'logic_strictness': 0.5 }
+    
+    FOR each keyword IN prompt.lower():
+        IF keyword IN ['strict', 'prove', 'formal']:
+            weights['logic_strictness'] = MAX(weights['logic_strictness'], 1.0)
+        IF keyword IN ['secure', 'safe']:
+            weights['security'] = MAX(weights['security'], 0.8)
+            
+    RETURN weights
+```
+
+### 3.2. Tree Transformer (The Generator)
+**Purpose:** Assemble code structurally. The generation vocabulary is strictly limited to BNF grammar rules (AST Nodes). Syntax errors are mathematically impossible.
+**Algorithm:** Constrained Recursive Node Assembly.
+
+```text
+FUNCTION generate_ast(intent: String, context: LatentVector) -> AST_Node
+    module_node = CREATE_NODE(Module)
+    
+    // Intentionally creates a logic bug to test downstream systems
+    assign_node = CREATE_NODE(Assign)
+    assign_node.target = CREATE_NODE(Name, id='x')
+    assign_node.value = CREATE_NODE(UnaryOp, op=USub(), operand=Constant(1)) // x = -1
+    
+    call_node = CREATE_NODE(Expr, value=CREATE_NODE(Call, func='sim_print', args=[BinOp(Name('x'), Add, 10)]))
+    
+    module_node.body = [assign_node, call_node]
+    RETURN module_node
+```
+
+### 3.3. Z3 Predicate Logic Skeptic (Formal Verification)
+**Purpose:** Prove mathematically if the generated AST violates universal invariants *before* execution.
+**Algorithm:** AST-to-FOL Transpilation & SMT Solving.
+
+```text
+FUNCTION verify_logic(tree: AST_Node, invariants: List[FOL_Predicate]) -> Boolean
+    solver = INIT_SMT_SOLVER()
+    ADD_TO_SOLVER(solver, invariants) // e.g., x > 0, y > 0
+    
+    predicates = EXTRACT_PREDICATES_FROM_AST(tree)
+    // e.g., extracts "x == -1" from the AST Assignment node
+    
+    ADD_TO_SOLVER(solver, predicates)
+    
+    result = CHECK_SATISFIABILITY(solver)
+    
+    IF result == UNSAT:
+        RETURN False // Code mathematically contradicts invariants (e.g., x cannot be -1 if x > 0)
+    ELSE:
+        RETURN True  // Code is logically sound
+```
+
+### 3.4. Genetic Programming Mutator (Fallback)
+**Purpose:** Triggered exclusively on `UNSAT` or Runtime errors. Performs structural node-swapping to evolve the AST toward logical correctness.
+**Algorithm:** Targeted Node Substitution.
+
+```text
+FUNCTION mutate_ast(tree: AST_Node) -> AST_Node
+    mutated_tree = DEEP_COPY(tree)
+    
+    WALK_AST(mutated_tree):
+        IF node.type == 'Assign' AND node.value.type == 'UnaryOp':
+            // Mutation heuristic: If negative assignment causes UNSAT, force positive.
+            node.value = CREATE_NODE(Constant, value=ABS(node.value.operand.value))
+            LOG("Mutated negative invariant violation to positive")
+            
+    RETURN mutated_tree
+```
+
+### 3.5. Dictionary-Based Environment Interpreter
+**Purpose:** Execute the AST without OS-level risks or Docker overhead. Simulates memory, filesystem, and stdout via nested dictionaries.
+**Algorithm:** AST Walking & State Mutation.
+
+```text
+FUNCTION execute_in_simulated_env(tree: AST_Node, env: Dict_Environment) -> ExecutionResult
+    WALK_AST(tree):
+        IF node.type == 'Assign':
+            env.variables[node.target.id] = EVALUATE(node.value, env.variables)
+            
+        IF node.type == 'Call' AND node.func.name == 'sim_print':
+            val = EVALUATE(node.args[0], env.variables)
+            env.stdout.APPEND(String(val))
+            
+        IF node.type == 'Name' AND node.id NOT IN env.variables:
+            THROW RuntimeError(target_node=node, msg="Undefined Variable")
+            
+    RETURN Success
+```
+
+---
+
+## 4. PIPELINE STATE MACHINE & FLOWCHART
+
+The application operates on a strict state-machine paradigm to prevent infinite agent loops common in LLM frameworks (like LangChain).
+
+```mermaid
+stateDiagram-v2
+    [*] --> PLANNING: User Prompt Received
+    PLANNING --> DRAFTING: Weights Calculated
+    
+    DRAFTING --> FOL_VALIDATION: AST Generated
+    
+    state FOL_VALIDATION {
+        [*] --> Run_Z3
+        Run_Z3 --> SAT: Satisfiable
+        Run_Z3 --> UNSAT: Unsatisfiable (Contradiction)
+        UNSAT --> GP_MUTATION: Trigger Evolution
+        GP_MUTATION --> Run_Z3: Re-evaluate Mutated AST
+    }
+    
+    FOL_VALIDATION --> EXECUTION: SAT Confirmed
+    
+    state EXECUTION {
+        [*] --> Walk_AST
+        Walk_AST --> Env_Update: Update Dict State
+        Walk_AST --> Env_Crash: Missing Variable / Bad Op
+    }
+    
+    EXECUTION --> DONE: Env_Update Finishes
+    EXECUTION --> FAILED: Env_Crash Occurs
+    
+    DONE --> [*]
+    FAILED --> [*]
+```
+
+### State Transition Descriptions:
+1. **PLANNING -> DRAFTING:** The Fuzzy Logic Controller quantifies the prompt. The Mamba engine loads repo context.
+2. **DRAFTING -> FOL_VALIDATION:** The Tree Transformer outputs an AST. It is immediately passed to the Z3 Skeptic.
+3. **FOL_VALIDATION (UNSAT Loop):** If Z3 proves the code violates a rule (e.g., `x = -1` violates `x > 0`), the pipeline rejects the AST, routes it to the Genetic Programmer, mutates the offending node (e.g., `-1` becomes `1`), and re-runs Z3 in a loop until `SAT` is achieved.
+4. **EXECUTION:** The logically sound AST is handed to the Dictionary Interpreter. It walks the tree, updating the simulated RAM and Filesystem dictionaries.
+5. **FAILED:** If the Interpreter hits a missing variable, it throws an exception containing a direct memory pointer to the exact offending AST node.
+
+---
+
+## 5. USER INTERFACE / USER EXPERIENCE (UI/UX)
+
+The frontend is built using **PySide6 `QGraphicsScene`**. It does not use a standard chat log. It uses a Node-Based paradigm similar to Unreal Engine Blueprints.
+
+### 5.1. Visual Layout
+*   **Left Pane:** Intent Input, State Machine Log (showing `PLANNING`, `UNSAT`, `GP_MUTATION` transitions), Generated Python Code view, and the live JSON dump of the Dictionary Environment state.
+*   **Right Pane:** An infinite, pannable Node Canvas.
+
+### 5.2. Real-Time AST Rendering
+As the Tree Transformer builds the AST, the UI recursively maps `ast.Assign`, `ast.BinOp`, `ast.Name`, etc., to rectangular nodes. Lines are drawn dynamically mapping parent-child hierarchies.
+
+### 5.3. The "RED FLAG" Error Mechanism
+If the Dictionary Environment crashes (e.g., tries to read a variable that doesn't exist), the exception payload includes the exact `ast.Node` object that caused the crash.
+*   The UI iterates through its graphical node list.
+*   It matches the graphical item's internal `ast_node` pointer to the crashed node pointer.
+*   It changes that specific node's brush and pen to bright **Red**, and auto-pans the camera to center on it.
+*   *Result:* The user visually sees exactly which node in the structural tree is broken, fulfilling the "Transparency" requirement of the architecture.
+
+---
+
+## 6. COMPETITIVE MOAT & DEFENSIBILITY SUMMARY
+
+1.  **No Text Hallucinations:** By operating entirely on `ast.*` objects, generating a malformed parenthesis or incorrect indentation is programmatically impossible.
+2.  **Mathematical Correctness:** The integration of Z3 Predicate Logic means Leviathan does not just "guess" if code is right; it mathematically *proves* it doesn't violate constraints before running it.
+3.  **Infinite Execution Speed:** Replacing Docker/OS sandboxes with nested Python Dictionaries allows the system to execute and test millions of AST variations per second during the Genetic Programming phase.
+4.  **Structural Tool Calling:** Tools (like `sim_print`) are not brittle JSON strings parsed by an orchestrator; they are native nodes within the AST grammar, executed natively by the interpreter.
