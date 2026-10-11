@@ -1,0 +1,7 @@
+# Leviathan — Visual Structural Engine
+# A PySide6 desktop application that demonstrates a multi-stage AI code-synthesis pipeline
+# with Z3 formal-logic verification, genetic-programming mutation, and interactive AST visualisation.
+
+# Required
+PySide6>=6.6
+z3-solver>=4.12
